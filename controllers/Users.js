@@ -10,46 +10,90 @@ export const getUsers = async (req, res) => {
     });
     res.status(200).json(users);
   } catch (error) {
-    console.log(error);
+    res.status(500).json({ msg: error.message });
   }
 };
 
 export const getUsersById = async (req, res) => {
   try {
     const users = await Users.findOne({
+      attributes: ["id", "name", "email"],
       where: {
         id: req.params.id,
       },
     });
     res.status(200).json(users);
   } catch (error) {
-    console.log(error);
+    res.status(500).json({ msg: error.message });
   }
 };
 
 export const createUser = async (req, res) => {
+  const { name, email, password, confPassword } = req.body;
+  if (password !== confPassword)
+    return res
+      .status(400)
+      .json({ msg: "Password dan Confirm Password tidak cocok" });
+  // salt = random string
+  const salt = await bcrypt.genSalt();
+  const hashPassword = await bcrypt.hash(password, salt);
   try {
-    // data diambil dari body
-    await Users.create(req.body);
-    res.status(201).json({ msg: "User Created" });
+    // create digunakan karena akan disimpan didatabase
+    await Users.create({
+      name: name,
+      email: email,
+      password: hashPassword,
+    });
+    res.json({ msg: "Register Berhasil" });
   } catch (error) {
-    console.log(error);
+    res.status(400).json({ msg: error.message });
   }
 };
 export const updateUser = async (req, res) => {
+  const user = await Users.findOne({
+    where: {
+      id: req.params.id,
+    },
+  });
+  if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
+  const { name, email, password, confPassword } = req.body;
+  let hashPassword;
+  const salt = await bcrypt.genSalt();
+  if (password === "" || password === null) {
+    hashPassword = user.password;
+  } else {
+    hashPassword = await bcrypt.hash(password, salt);
+  }
+  if (password !== confPassword)
+    return res
+      .status(400)
+      .json({ msg: "Password dan Confirm Password tidak cocok" });
   try {
-    await Users.update(req.body, {
-      where: {
-        id: req.params.id,
+    await Users.update(
+      {
+        name: name,
+        email: email,
+        password: hashPassword,
       },
-    });
+      {
+        where: {
+          id: user.id,
+        },
+      }
+    );
     res.status(200).json({ msg: "User Updated" });
   } catch (error) {
-    console.log(error.message);
+    res.status(400).json({ msg: error.message });
   }
 };
 
 export const deleteUser = async (req, res) => {
+  const user = await User.findOne({
+    where: {
+      id: req.params.id,
+    },
+  });
+  if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
   try {
     await Users.destroy({
       where: {
@@ -58,7 +102,7 @@ export const deleteUser = async (req, res) => {
     });
     res.status(200).json({ msg: "User Deleted" });
   } catch (error) {
-    console.log(error.message);
+    res.status(400).json({ msg: error.message });
   }
 };
 
@@ -80,7 +124,7 @@ export const Register = async (req, res) => {
     });
     res.json({ msg: "Register Berhasil" });
   } catch (error) {
-    console.log(error);
+    res.status(400).json({ msg: error.message });
   }
 };
 
